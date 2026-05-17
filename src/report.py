@@ -11,8 +11,7 @@ from .utils import count_lines
 
 log = logging.getLogger("recon")
 
-
-def generate_summary(domain: str, out_dir: str, files: dict) -> str:
+def generate_summary(domain: str, out_dir: str, files: dict) -> tuple[str, dict]:
     log.info("\n--- GENERATING SUMMARY REPORT ---")
     summary = {
         "domain"    : domain,
@@ -41,4 +40,4 @@ def generate_summary(domain: str, out_dir: str, files: dict) -> str:
     print(f"  Summary    : {summary_file}")
     print("=" * 55 + "\n")
 
-    return summary_file
+    return summary_file, summary

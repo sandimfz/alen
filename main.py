@@ -26,6 +26,7 @@ from src.steps import (
     step_gau,
 )
 from src.report import generate_summary
+from src.notify import send_telegram
 
 logging.basicConfig(
     level=logging.INFO,
@@ -105,8 +106,7 @@ def main():
         log.info("\n[SKIP] naabu port scanning")
         httpx_input            = files["04_alive_domains"]
 
-    files["06_httpx"]      = step_httpx(httpx_input, out_dir)
-    files["06_httpx_live"] = files["06_httpx"].replace("httpx_results.txt", "httpx_live.txt")
+    files["06_httpx"], files["06_httpx_live"] = step_httpx(httpx_input, out_dir)
 
     if not args.skip_crawl:
         files["07_katana"] = step_katana(files["06_httpx"], out_dir, cookie=args.cookie)
@@ -120,8 +120,11 @@ def main():
         log.info("\n[SKIP] waybackurls & gau")
 
     # -- Summary --
-    generate_summary(domain, out_dir, files)
+    _, summary = generate_summary(domain, out_dir, files)
     log.info("Recon complete! Happy hacking")
+
+    # -- Notify (only after everything is done) --
+    send_telegram(domain, out_dir, summary)
 
 
 if __name__ == "__main__":

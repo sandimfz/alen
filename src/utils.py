@@ -12,21 +12,24 @@ from datetime import datetime
 log = logging.getLogger("recon")
 
 
-def run(cmd: list[str], output_file: str | None = None) -> bool:
+def run(cmd: list[str], output_file: str | None = None, timeout: int | None = None) -> bool:
     """Run a shell command, optionally writing stdout to a file."""
     cmd_str = " ".join(cmd)
     log.info(f">> {cmd_str}")
     try:
         if output_file:
             with open(output_file, "w") as f:
-                result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True)
+                result = subprocess.run(cmd, stdout=f, stderr=subprocess.PIPE, text=True, timeout=timeout)
         else:
-            result = subprocess.run(cmd, capture_output=True, text=True)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
 
         if result.returncode != 0:
             stderr = result.stderr.strip() if result.stderr else ""
             log.warning(f"   Exit code {result.returncode}" + (f": {stderr[:200]}" if stderr else ""))
         return result.returncode == 0
+    except subprocess.TimeoutExpired:
+        log.error(f"   Timeout after {timeout}s: {cmd[0]}")
+        return False
     except FileNotFoundError:
         log.error(f"   Tool not found: {cmd[0]}")
         return False

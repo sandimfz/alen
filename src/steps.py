@@ -4,6 +4,7 @@ steps.py - Individual recon pipeline step functions.
 
 import logging
 import os
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -24,13 +25,14 @@ def step_subfinder(domain: str, out_dir: str) -> str:
 def step_alterx(subdomains_file: str, out_dir: str) -> str:
     log.info("\n--- [2/9] ALTERX - Permutation & Mutation ---")
     output = f"{out_dir}/subdomains/alterx_mutations.txt"
-    with open(output, "w") as f:
+    with open(subdomains_file) as stdin_f, open(output, "w") as stdout_f:
         subprocess.run(
             ["alterx", "-silent"],
-            stdin=open(subdomains_file),
-            stdout=f,
+            stdin=stdin_f,
+            stdout=stdout_f,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=300,
         )
     n = count_lines(output)
     log.info(f"   [+] Generated {n} mutation candidates -> {output}")
@@ -54,8 +56,7 @@ def step_shuffledns(mutations_file: str, resolvers_file: str, out_dir: str) -> s
         log.warning("   shuffledns found no results. Falling back to original subdomains.")
         subdomains_file = f"{out_dir}/subdomains/subdomains.txt"
         if os.path.exists(subdomains_file) and count_lines(subdomains_file) > 0:
-            import shutil as _sh
-            _sh.copy(subdomains_file, output)
+            shutil.copy(subdomains_file, output)
             n = count_lines(output)
             log.info(f"   [+] Fallback: using {n} subdomains from step 1 -> {output}")
         else:
@@ -74,13 +75,14 @@ def step_dnsx(resolved_file: str, out_dir: str) -> str:
         Path(output).touch()
         return output
 
-    with open(output, "w") as f:
+    with open(resolved_file) as stdin_f, open(output, "w") as stdout_f:
         subprocess.run(
             ["dnsx", "-silent"],
-            stdin=open(resolved_file),
-            stdout=f,
+            stdin=stdin_f,
+            stdout=stdout_f,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=600,
         )
     n = count_lines(output)
     log.info(f"   [+] {n} live domains (valid DNS) -> {output}")
@@ -96,20 +98,21 @@ def step_naabu(alive_file: str, out_dir: str) -> str:
         Path(output).touch()
         return output
 
-    with open(output, "w") as f:
+    with open(alive_file) as stdin_f, open(output, "w") as stdout_f:
         subprocess.run(
             ["naabu", "-silent", "-top-ports", "1000"],
-            stdin=open(alive_file),
-            stdout=f,
+            stdin=stdin_f,
+            stdout=stdout_f,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=1800,
         )
     n = count_lines(output)
     log.info(f"   [+] {n} open ports found -> {output}")
     return output
 
 
-def step_httpx(ports_file: str, out_dir: str) -> str:
+def step_httpx(ports_file: str, out_dir: str) -> tuple[str, str]:
     log.info("\n--- [6/9] HTTPX - Web Service Analysis ---")
     output      = f"{out_dir}/http/httpx_results.txt"
     output_json = f"{out_dir}/http/httpx_results.json"
@@ -120,38 +123,36 @@ def step_httpx(ports_file: str, out_dir: str) -> str:
         Path(output).touch()
         Path(output_json).touch()
         Path(output_live).touch()
-        return output
+        return output, output_live
 
-    with open(output, "w") as f:
+    # Single pass: write both plain text and JSON simultaneously
+    with open(ports_file) as stdin_f, open(output, "w") as stdout_f:
         subprocess.run(
-            ["httpx", "-silent", "-title", "-sc", "-td", "-ip"],
-            stdin=open(ports_file),
-            stdout=f,
+            ["httpx", "-silent", "-title", "-sc", "-td", "-ip",
+             "-json", "-o", output_json],
+            stdin=stdin_f,
+            stdout=stdout_f,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=1800,
         )
-    with open(output_json, "w") as f:
-        subprocess.run(
-            ["httpx", "-silent", "-title", "-sc", "-td", "-ip", "-json"],
-            stdin=open(ports_file),
-            stdout=f,
-            stderr=subprocess.PIPE,
-            text=True,
-        )
-    with open(output_live, "w") as f:
+
+    # Second pass for live URLs only (different filter flags)
+    with open(ports_file) as stdin_f, open(output_live, "w") as stdout_f:
         subprocess.run(
             ["httpx", "-silent", "-mc", "200,201,204,301,302,303,307,308,403"],
-            stdin=open(ports_file),
-            stdout=f,
+            stdin=stdin_f,
+            stdout=stdout_f,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=1800,
         )
 
     n      = count_lines(output)
     n_live = count_lines(output_live)
     log.info(f"   [+] {n} active web services -> {output}")
     log.info(f"   [+] {n_live} live URLs (2xx/3xx/403) -> {output_live}")
-    return output
+    return output, output_live
 
 
 def step_katana(httpx_file: str, out_dir: str, cookie: str | None = None) -> str:
@@ -180,7 +181,7 @@ def step_katana(httpx_file: str, out_dir: str, cookie: str | None = None) -> str
     if cookie:
         cmd += ["-H", f"Cookie: {cookie}"]
 
-    run(cmd)
+    run(cmd, timeout=3600)
     n = count_lines(output)
     log.info(f"   [+] {n} endpoints/URLs discovered -> {output}")
     return output
@@ -190,12 +191,13 @@ def step_waybackurls(domain: str, out_dir: str) -> str:
     log.info("\n--- [8/9] WAYBACKURLS - Wayback Machine URL Fetch ---")
     output = f"{out_dir}/passive/waybackurls.txt"
 
-    with open(output, "w") as f:
+    with open(output, "w") as stdout_f:
         subprocess.run(
             ["waybackurls", domain],
-            stdout=f,
+            stdout=stdout_f,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=300,
         )
 
     n = count_lines(output)
@@ -207,12 +209,13 @@ def step_gau(domain: str, out_dir: str) -> str:
     log.info("\n--- [9/9] GAU - Get All URLs (OTX, Wayback, CommonCrawl, URLScan) ---")
     output = f"{out_dir}/passive/gau_urls.txt"
 
-    with open(output, "w") as f:
+    with open(output, "w") as stdout_f:
         subprocess.run(
-            ["gau", "--subs", "--threads", "5", "--o", output, domain],
-            stdout=f,
+            ["gau", "--subs", "--threads", "5", domain],
+            stdout=stdout_f,
             stderr=subprocess.PIPE,
             text=True,
+            timeout=600,
         )
 
     n = count_lines(output)

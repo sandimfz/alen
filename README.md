@@ -87,3 +87,23 @@ recon/recon_target.com_20260517_xxxxxx/
 ```bash
 pytest tests/
 ```
+
+## Telegram Notification
+
+After recon completes, a summary is automatically sent to Telegram.
+
+**Setup:**
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and fill in your credentials:
+```
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHAT_ID=your_chat_id_here
+```
+
+- Get your bot token from [@BotFather](https://t.me/BotFather)
+- Get your chat ID by messaging [@userinfobot](https://t.me/userinfobot)
+
+If `.env` is not configured, the notification is silently skipped and recon still completes normally.
