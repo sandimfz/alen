@@ -1,10 +1,20 @@
-/recon/*
+# Recon output
+/recon/
+
+# Wordlists & resolvers
 best-dns-wordlist.txt
 resolvers.txt
+
+# Environment & secrets
 .env
 
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 
+# Agent workspace
 /agent/
+
+# Shell scripts
+*.sh
