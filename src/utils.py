@@ -78,7 +78,7 @@ def setup_output_dir(domain: str) -> str:
     ts   = datetime.now().strftime("%Y%m%d_%H%M%S")
     base = Path(__file__).parent.parent / "recon" / f"recon_{domain}_{ts}"
 
-    for subdir in ["subdomains", "dns", "ports", "http", "crawl", "passive"]:
+    for subdir in ["subdomains", "dns", "ports", "http", "crawl", "passive", "js"]:
         (base / subdir).mkdir(parents=True, exist_ok=True)
 
     log.info(f"Output directory: {base}/")

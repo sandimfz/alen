@@ -2,7 +2,7 @@
 
 Automated bug bounty recon pipeline.
 
-**Pipeline:** subfinder → alterx → shuffledns → dnsx → naabu → httpx → katana → waybackurls → gau
+**Pipeline:** subfinder → alterx → shuffledns → dnsx → naabu → httpx → katana → waybackurls → gau → jshunter
 
 ## Requirements
 
@@ -16,6 +16,7 @@ pdtm -ia -igp
 # Or individually
 go install github.com/tomnomnom/waybackurls@latest
 go install github.com/lc/gau/v2/cmd/gau@latest
+go install -v github.com/cc1a2b/jshunter/cmd/jshunter@latest
 ```
 
 Make sure Go bin is in your PATH:
@@ -39,6 +40,8 @@ Place your `resolvers.txt` in the project root, or pass it via `--resolvers`.
 python3 main.py -d target.com
 python3 main.py -d target.com --cookie "session=abc123"
 python3 main.py -d target.com --skip-ports --skip-crawl
+python3 main.py -d target.com --proxy 127.0.0.1:8080
+python3 main.py -d target.com --skip-js
 python3 main.py -d target.com --tools-check-only
 ```
 
@@ -48,11 +51,14 @@ python3 main.py -d target.com --tools-check-only
 |------|-------------|
 | `-d`, `--domain` | Target domain (required) |
 | `--cookie` | Session cookie for Katana authenticated crawl |
+| `--proxy` | HTTP/SOCKS5 proxy for JSHunter (e.g., `127.0.0.1:8080`) |
 | `--resolvers` | Path to custom resolvers.txt |
 | `--skip-alterx` | Skip alterx mutation step |
 | `--skip-ports` | Skip naabu port scanning |
 | `--skip-crawl` | Skip katana crawling |
 | `--skip-passive` | Skip waybackurls and gau |
+| `--skip-js` | Skip JSHunter JavaScript analysis |
+| `--skip-tls` | Skip TLS certificate verification in JSHunter |
 | `--tools-check-only` | Only verify tools, do not run recon |
 
 ## Output
@@ -60,7 +66,7 @@ python3 main.py -d target.com --tools-check-only
 Results are saved to `recon/recon_<domain>_<timestamp>/`:
 
 ```
-recon/recon_target.com_20260517_xxxxxx/
+recon/recon_example.com_20260517_xxxxxx/
 ├── subdomains/
 │   ├── subdomains.txt
 │   ├── alterx_mutations.txt
@@ -79,6 +85,9 @@ recon/recon_target.com_20260517_xxxxxx/
 ├── passive/
 │   ├── waybackurls.txt
 │   └── gau_urls.txt
+├── js/
+│   ├── js_urls.txt
+│   └── jshunter_results.json
 └── SUMMARY.json
 ```
 

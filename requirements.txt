@@ -7,6 +7,7 @@
 # Individual tools:
 #   go install github.com/tomnomnom/waybackurls@latest
 #   go install github.com/lc/gau/v2/cmd/gau@latest
+#   go install -v github.com/cc1a2b/jshunter/cmd/jshunter@latest
 #
 # For running tests:
 pytest==8.3.5

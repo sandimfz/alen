@@ -188,7 +188,7 @@ def step_katana(httpx_file: str, out_dir: str, cookie: str | None = None) -> str
 
 
 def step_waybackurls(domain: str, out_dir: str) -> str:
-    log.info("\n--- [8/9] WAYBACKURLS - Wayback Machine URL Fetch ---")
+    log.info("\n--- [8/10] WAYBACKURLS - Wayback Machine URL Fetch ---")
     output = f"{out_dir}/passive/waybackurls.txt"
 
     with open(output, "w") as stdout_f:
@@ -206,7 +206,7 @@ def step_waybackurls(domain: str, out_dir: str) -> str:
 
 
 def step_gau(domain: str, out_dir: str) -> str:
-    log.info("\n--- [9/9] GAU - Get All URLs (OTX, Wayback, CommonCrawl, URLScan) ---")
+    log.info("\n--- [9/10] GAU - Get All URLs (OTX, Wayback, CommonCrawl, URLScan) ---")
     output = f"{out_dir}/passive/gau_urls.txt"
 
     with open(output, "w") as stdout_f:
@@ -221,3 +221,80 @@ def step_gau(domain: str, out_dir: str) -> str:
     n = count_lines(output)
     log.info(f"   [+] {n} URLs fetched from all sources -> {output}")
     return output
+
+
+def step_jshunter(
+    katana_file: str,
+    wayback_file: str,
+    gau_file: str,
+    out_dir: str,
+    cookies: str | None = None,
+    proxy: str | None = None,
+    skip_tls: bool = False,
+    threads: int = 5,
+) -> tuple[str, str]:
+    log.info("\n--- [10/10] JSHUNTER - JavaScript Security Analysis ---")
+
+    js_urls_file = f"{out_dir}/js/js_urls.txt"
+    output_json  = f"{out_dir}/js/jshunter_results.json"
+
+    # Collect all .js URLs from katana, waybackurls, and gau — deduplicated
+    js_urls: set[str] = set()
+    for source_file in [katana_file, wayback_file, gau_file]:
+        if not source_file or not os.path.exists(source_file):
+            continue
+        try:
+            with open(source_file) as f:
+                for line in f:
+                    url = line.strip()
+                    if url and ".js" in url.lower():
+                        js_urls.add(url)
+        except Exception as exc:
+            log.warning(f"   Could not read {source_file}: {exc}")
+
+    if not js_urls:
+        log.warning("   No .js URLs found from katana/waybackurls/gau. Skipping JSHunter.")
+        Path(js_urls_file).touch()
+        Path(output_json).touch()
+        return js_urls_file, output_json
+
+    with open(js_urls_file, "w") as f:
+        f.write("\n".join(sorted(js_urls)) + "\n")
+
+    log.info(f"   [+] {len(js_urls)} unique .js URLs collected -> {js_urls_file}")
+
+    # Build jshunter command — full security analysis
+    cmd = [
+        "jshunter",
+        "-l", js_urls_file,
+        "-ep",          # extract endpoints
+        "-s",           # secrets detection
+        "-x",           # JWT tokens
+        "-P",           # hidden params
+        "-PU",          # param URLs with context
+        "-g",           # GraphQL analysis
+        "-F",           # Firebase configs
+        "-L",           # links extraction
+        "-d",           # deobfuscate
+        "-j",           # JSON output
+        "--found-only", # suppress empty results
+        "-t", str(threads),
+        "-o", output_json,
+    ]
+
+    if cookies:
+        cmd += ["-c", cookies]
+    if proxy:
+        cmd += ["-p", proxy]
+    if skip_tls:
+        cmd += ["-k"]
+
+    ok = run(cmd, timeout=3600)
+
+    if ok and os.path.exists(output_json):
+        n = count_lines(output_json)
+        log.info(f"   [+] JSHunter analysis complete -> {output_json} ({n} lines)")
+    else:
+        log.warning("   JSHunter finished with no output or non-zero exit.")
+
+    return js_urls_file, output_json

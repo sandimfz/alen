@@ -2,7 +2,7 @@
 """
 main.py - Entry point for the recon automation pipeline.
 
-Pipeline: subfinder -> alterx -> shuffledns -> dnsx -> naabu -> httpx -> katana -> waybackurls -> gau
+Pipeline: subfinder -> alterx -> shuffledns -> dnsx -> naabu -> httpx -> katana -> waybackurls -> gau -> jshunter
 
 Usage:
     python3 main.py -d target.com
@@ -24,6 +24,7 @@ from src.steps import (
     step_katana,
     step_waybackurls,
     step_gau,
+    step_jshunter,
 )
 from src.report import generate_summary
 from src.notify import send_telegram
@@ -45,11 +46,14 @@ def main():
     )
     parser.add_argument("-d", "--domain",         required=True,       help="Target domain (e.g. example.com)")
     parser.add_argument("--cookie",               default=None,        help="Session cookie for authenticated crawling in Katana")
+    parser.add_argument("--proxy",                default=None,        help="HTTP/SOCKS5 proxy for JSHunter (e.g., 127.0.0.1:8080)")
     parser.add_argument("--resolvers",            default=None,        help="Path to custom resolvers.txt (default: resolvers.txt in project root)")
     parser.add_argument("--skip-alterx",          action="store_true", help="Skip the alterx mutation step")
     parser.add_argument("--skip-ports",           action="store_true", help="Skip the naabu port scanning step")
     parser.add_argument("--skip-crawl",           action="store_true", help="Skip the katana crawling step")
     parser.add_argument("--skip-passive",         action="store_true", help="Skip waybackurls and gau passive URL collection")
+    parser.add_argument("--skip-js",              action="store_true", help="Skip JSHunter JavaScript security analysis")
+    parser.add_argument("--skip-tls",             action="store_true", help="Skip TLS certificate verification in JSHunter")
     parser.add_argument("--tools-check-only",     action="store_true", help="Only check tools availability, do not run recon")
     args = parser.parse_args()
 
@@ -61,6 +65,7 @@ def main():
     if not args.skip_ports:   tools_needed.append("naabu")
     if not args.skip_crawl:   tools_needed.append("katana")
     if not args.skip_passive: tools_needed += ["waybackurls", "gau"]
+    if not args.skip_js:      tools_needed.append("jshunter")
 
     if not check_tools(tools_needed):
         sys.exit(1)
@@ -118,6 +123,19 @@ def main():
         files["09_gau"]         = step_gau(domain, out_dir)
     else:
         log.info("\n[SKIP] waybackurls & gau")
+
+    if not args.skip_js:
+        files["10_js_urls"], files["10_jshunter"] = step_jshunter(
+            katana_file  = files.get("07_katana", ""),
+            wayback_file = files.get("08_waybackurls", ""),
+            gau_file     = files.get("09_gau", ""),
+            out_dir      = out_dir,
+            cookies      = args.cookie,
+            proxy        = args.proxy,
+            skip_tls     = args.skip_tls,
+        )
+    else:
+        log.info("\n[SKIP] jshunter JS analysis")
 
     # -- Summary --
     _, summary = generate_summary(domain, out_dir, files)
