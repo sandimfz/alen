@@ -156,7 +156,7 @@ def step_httpx(ports_file: str, out_dir: str) -> tuple[str, str]:
 
 
 def step_katana(httpx_file: str, out_dir: str, cookie: str | None = None) -> str:
-    log.info("\n--- [7/9] KATANA - Deep Crawling ---")
+    log.info("\n--- [7/10] KATANA - Deep Crawling ---")
     output = f"{out_dir}/crawl/katana_endpoints.txt"
 
     urls = []

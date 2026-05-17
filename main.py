@@ -114,7 +114,7 @@ def main():
     files["06_httpx"], files["06_httpx_live"] = step_httpx(httpx_input, out_dir)
 
     if not args.skip_crawl:
-        files["07_katana"] = step_katana(files["06_httpx"], out_dir, cookie=args.cookie)
+        files["07_katana"] = step_katana(files["06_httpx_live"], out_dir, cookie=args.cookie)
     else:
         log.info("\n[SKIP] katana crawling")
 
