@@ -1,0 +1,7 @@
+/recon/*
+best-dns-wordlist.txt
+resolvers.txt
+
+__pycache__/
+*.py[cod]
+*$py.class
